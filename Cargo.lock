@@ -11,6 +11,7 @@ name = "cli"
 version = "0.1.0"
 dependencies = [
  "oval-core",
+ "oval-scanner",
 ]
 
 [[package]]
@@ -18,8 +19,11 @@ name = "oval-core"
 version = "0.1.0"
 
 [[package]]
-name = "scanner"
+name = "oval-scanner"
 version = "0.1.0"
+dependencies = [
+ "oval-core",
+]
 
 [[package]]
 name = "ssh"
