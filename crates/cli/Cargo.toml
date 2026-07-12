@@ -7,3 +7,4 @@ license.workspace = true
 
 [dependencies]
 oval-core = { path = "../core" }
+oval-scanner = { path = "../scanner"}
