@@ -1,11 +1,20 @@
+use chrono::{DateTime, Local};
 use std::io;
-use std::path::Path;
+use std::time::{Instant, SystemTime};
 
-use oval_scanner::collectors::host_collector::HostCollector;
-use oval_scanner::collectors::package_collector::PackageCollector;
-use oval_scanner::collectors::pacman_collector::PacmanCollector;
-use oval_scanner::runners::local_runner::LocalRunner;
-use oval_scanner::runners::runner::{self, Runner};
+use oval_scanner::{
+    collectors::{
+        host_collector::HostCollector, package_collector::PackageCollector,
+        pacman_collector::PacmanCollector,
+    },
+    runners::local_runner::LocalRunner,
+};
+
+fn format_time(time: SystemTime) -> String {
+    DateTime::<Local>::from(time)
+        .format("%Y-%m-%d %H:%M:%S %:z")
+        .to_string()
+}
 
 fn main() -> io::Result<()> {
     let host = HostCollector::collect()?;
@@ -21,7 +30,33 @@ fn main() -> io::Result<()> {
 
     if detect {
         println!("{} was detected", name);
-        collector.collect()?;
+        println!("Parse all packages in system");
+        let started_at = SystemTime::now();
+        let timer = Instant::now();
+        let packages = collector.collect()?;
+        let elapsed = timer.elapsed();
+        let finished_at = SystemTime::now();
+        println!("Show first 10 packages:");
+        for package in &packages[0..10] {
+            println!(
+                "{} {} (installed: {}, built: {})",
+                package.name,
+                package.version,
+                format_time(package.install_date),
+                format_time(package.build_date),
+            );
+        }
+
+        println!(
+            "Collection started: {}\n\
+            Collection finished: {}\n\
+            Collection duration: {:.2?}\n\
+            Packages collected: {}",
+            format_time(started_at),
+            format_time(finished_at),
+            elapsed,
+            packages.len(),
+        );
     }
 
     Ok(())
