@@ -1,5 +1,5 @@
 use crate::runners::runner::{CommandOutput, Runner};
-
+use std::fs;
 use std::{
     fs::File,
     io::{self, Read},
@@ -45,5 +45,11 @@ impl Runner for LocalRunner {
 
         file.read_to_string(&mut contents)?;
         Ok(contents)
+    }
+
+    fn read_dir(&self, path: &Path) -> io::Result<Vec<std::path::PathBuf>> {
+        fs::read_dir(path)?
+            .map(|entry| entry.map(|entry| entry.path()))
+            .collect()
     }
 }
