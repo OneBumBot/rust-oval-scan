@@ -1,3 +1,4 @@
+use crate::runners::runner::Runner;
 use oval_core::packages::package::Package;
 use std::io;
 
