@@ -1,10 +1,12 @@
-#[derive(Debug, Default)]
+use std::time::SystemTime;
+
+#[derive(Debug)]
 pub struct Package {
     pub name: String,
     pub version: String,
-    pub desc: Option<String>,
-    pub arch: Option<String>,
+    pub desc: String,
+    pub arch: String,
     pub license: String,
-    pub build_date: String,
-    pub install_date: String,
+    pub build_date: SystemTime,
+    pub install_date: SystemTime,
 }
