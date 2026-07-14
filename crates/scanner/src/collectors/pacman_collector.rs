@@ -1,6 +1,8 @@
 use crate::{collectors::package_collector::PackageCollector, runners::runner::Runner};
+use oval_core::packages;
 use oval_core::packages::package::Package;
-use std::{collections::HashMap, io, path::Path};
+use std::time::{Duration, UNIX_EPOCH};
+use std::{collections::HashMap, fs, io, path::Path};
 
 pub struct PacmanCollector<R> {
     runner: R,
@@ -47,6 +49,48 @@ impl<R: Runner> PacmanCollector<R> {
 
         desc
     }
+
+    fn parse_alpm_to_package(&self, hashmap: &HashMap<String, Vec<String>>) -> Package {
+        Package {
+            arch: hashmap
+                .get("ARCH")
+                .and_then(|values| values.first())
+                .cloned()
+                .unwrap_or_else(|| "".to_string()),
+            name: hashmap
+                .get("NAME")
+                .and_then(|values| values.first())
+                .cloned()
+                .unwrap_or_else(|| "".to_string()),
+            version: hashmap
+                .get("VERSION")
+                .and_then(|values| values.first())
+                .cloned()
+                .unwrap_or_else(|| "".to_string()),
+            desc: hashmap
+                .get("DESC")
+                .and_then(|values| values.first())
+                .cloned()
+                .unwrap_or_else(|| "".to_string()),
+            license: hashmap
+                .get("LICENSE")
+                .and_then(|values| values.first())
+                .cloned()
+                .unwrap_or_else(|| "".to_string()),
+            build_date: hashmap
+                .get("BUILDDATE")
+                .and_then(|values| values.first())
+                .and_then(|value| value.parse::<u64>().ok())
+                .map(|seconds| UNIX_EPOCH + Duration::from_secs(seconds))
+                .unwrap_or(UNIX_EPOCH),
+            install_date: hashmap
+                .get("INSTALLDATE")
+                .and_then(|values| values.first())
+                .and_then(|value| value.parse::<u64>().ok())
+                .map(|seconds| UNIX_EPOCH + Duration::from_secs(seconds))
+                .unwrap_or(UNIX_EPOCH),
+        }
+    }
 }
 
 impl<R: Runner> PackageCollector for PacmanCollector<R> {
@@ -59,10 +103,16 @@ impl<R: Runner> PackageCollector for PacmanCollector<R> {
     }
 
     fn collect(&self) -> std::io::Result<Vec<Package>> {
-        let res =
-            self.parse_alpm_file(Path::new("/var/lib/pacman/local/zellij-0.44.3-1.1/desc"))?;
+        let pacman_dir_path = "/var/lib/pacman/local";
+        let mut packages: Vec<Package> = Vec::new();
+        for entry in self.runner.read_dir(Path::new(pacman_dir_path))? {
+            if !entry.is_file() {
+                let content = self.parse_alpm_file(entry.join(Path::new("desc")).as_path())?;
+                let package = self.parse_alpm_to_package(&content);
+                packages.push(package);
+            }
+        }
 
-        println!("{:#?}", res);
-        todo!()
+        Ok(packages)
     }
 }
