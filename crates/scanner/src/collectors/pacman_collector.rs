@@ -106,7 +106,7 @@ impl<R: Runner> PackageCollector for PacmanCollector<R> {
         let pacman_dir_path = "/var/lib/pacman/local";
         let mut packages: Vec<Package> = Vec::new();
         for entry in self.runner.read_dir(Path::new(pacman_dir_path))? {
-            if !entry.is_file() {
+            if entry.is_dir() {
                 let content = self.parse_alpm_file(entry.join(Path::new("desc")).as_path())?;
                 let package = self.parse_alpm_to_package(&content);
                 packages.push(package);
