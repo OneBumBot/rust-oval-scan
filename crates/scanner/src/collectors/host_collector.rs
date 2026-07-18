@@ -1,13 +1,13 @@
 use oval_core::hosts::Host;
 use oval_core::hosts::os;
-use std::{io, process::Command};
+use std::{fs, io, process::Command};
 
 pub struct HostCollector {}
 
 fn get_hostname() -> io::Result<String> {
-    let output = Command::new("hostname").output()?;
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+    // `/etc/hostname` is provided by Linux systems, while the `hostname`
+    // executable is an optional userspace utility and may not be installed.
+    Ok(fs::read_to_string("/etc/hostname")?.trim().to_owned())
 }
 
 fn get_kernel() -> io::Result<String> {

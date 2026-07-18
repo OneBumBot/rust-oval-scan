@@ -13,5 +13,9 @@ resolver = "3"
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
-authors = ["Your Name"]
-repository = "https://github.com/yourname/oval-rust-scan"
+authors = ["Iurii Pianov"]
+repository = "https://github.com/onebumbot/oval-rust-scan"
+
+[profile.profiling]
+inherits = "release"
+debug = true
