@@ -37,7 +37,7 @@ fn main() -> io::Result<()> {
         let elapsed = timer.elapsed();
         let finished_at = SystemTime::now();
         println!("Show first 10 packages:");
-        for package in &packages[0..10] {
+        for package in &packages[0..40] {
             println!(
                 "{} {} (installed: {}, built: {})",
                 package.name,
