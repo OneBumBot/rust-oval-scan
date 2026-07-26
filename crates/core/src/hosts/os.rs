@@ -8,8 +8,7 @@ pub struct OsInfo {
     build_id: String,
 }
 
-pub fn parse_os_release() -> io::Result<OsInfo> {
-    let content = fs::read_to_string("/etc/os-release")?;
+pub fn parse_os_release(content: &str) -> io::Result<OsInfo> {
     let mut os_info = OsInfo::default();
 
     for line in content.lines() {

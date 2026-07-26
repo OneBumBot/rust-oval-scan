@@ -6,3 +6,8 @@ license.workspace = true
 
 [dependencies]
 oval-core = {path= "../core"}
+tokio = { workspace = true }
+futures = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

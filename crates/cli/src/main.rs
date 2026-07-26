@@ -16,28 +16,29 @@ fn format_time(time: SystemTime) -> String {
         .to_string()
 }
 
-fn main() -> io::Result<()> {
-    let host = HostCollector::collect()?;
+#[tokio::main]
+async fn main() -> io::Result<()> {
+    let runner = LocalRunner;
+
+    let host = HostCollector::collect(&runner).await?;
 
     println!("Host: {host:#?}");
 
-    let runner = LocalRunner {};
-
-    let collector = PacmanCollector::new(runner);
+    let collector = PacmanCollector::new(&runner).with_concurrency(16);
 
     let name = collector.name();
-    let detect = collector.detect()?;
+    let detect = collector.detect().await?;
 
     if detect {
         println!("{} was detected", name);
         println!("Parse all packages in system");
         let started_at = SystemTime::now();
         let timer = Instant::now();
-        let packages = collector.collect()?;
+        let packages = collector.collect().await?;
         let elapsed = timer.elapsed();
         let finished_at = SystemTime::now();
         println!("Show first 10 packages:");
-        for package in &packages[0..40] {
+        for package in packages.iter().take(40) {
             println!(
                 "{} {} (installed: {}, built: {})",
                 package.name,

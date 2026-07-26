@@ -1,20 +1,15 @@
-use crate::runners::runner::{CommandOutput, Runner};
-use std::fs;
-use std::{
-    fs::File,
-    io::{self, Read},
-    path::Path,
-};
+use crate::runners::runner::{CommandOutput, DirectoryEntry, Runner};
+use std::{io::Result, path::Path};
 
 pub struct LocalRunner;
 
 impl Runner for LocalRunner {
-    fn execute(
-        &self,
-        command: &str,
-        args: &[&str],
-    ) -> io::Result<crate::runners::runner::CommandOutput> {
-        let output = std::process::Command::new(command).args(args).output()?;
+    async fn execute(&self, command: &str, args: &[&str]) -> Result<CommandOutput> {
+        let mut command = tokio::process::Command::new(command);
+        command.args(args).kill_on_drop(true);
+
+        let output = command.output().await?;
+
         Ok(CommandOutput {
             exit_code: output.status.code(),
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -22,34 +17,36 @@ impl Runner for LocalRunner {
         })
     }
 
-    fn file_exist(&self, path: &Path) -> io::Result<bool> {
-        // match fs::metadata(path) {
-        //     Ok(_) => Ok(true),
-        //     Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
-        //     Err(error) => Err(error),
-        // }
-        Ok(path.try_exists()?)
+    async fn path_exists(&self, path: &Path) -> Result<bool> {
+        tokio::fs::try_exists(path).await
     }
 
-    fn command_exits(&self, command: &str) -> io::Result<bool> {
-        let res = std::process::Command::new("sh")
+    async fn command_exists(&self, command: &str) -> Result<bool> {
+        let res = tokio::process::Command::new("sh")
             .args(["-c", "command -v -- \"$1\"", "sh", command])
-            .output()?;
+            .kill_on_drop(true)
+            .output()
+            .await?;
 
         Ok(res.status.success())
     }
 
-    fn open_file(&self, path: &Path) -> io::Result<String> {
-        let mut file = File::open(path)?;
-        let mut contents = String::new();
-
-        file.read_to_string(&mut contents)?;
-        Ok(contents)
+    async fn read_to_string(&self, path: &Path) -> Result<String> {
+        tokio::fs::read_to_string(path).await
     }
 
-    fn read_dir(&self, path: &Path) -> io::Result<Vec<std::path::PathBuf>> {
-        fs::read_dir(path)?
-            .map(|entry| entry.map(|entry| entry.path()))
-            .collect()
+    async fn read_dir(&self, path: &Path) -> Result<Vec<DirectoryEntry>> {
+        let mut dir = tokio::fs::read_dir(path).await?;
+        let mut entries: Vec<DirectoryEntry> = Vec::new();
+        while let Some(entry) = dir.next_entry().await? {
+            entries.push(DirectoryEntry {
+                path: entry.path(),
+                is_dir: entry.file_type().await?.is_dir(),
+            });
+        }
+        Ok(entries)
     }
 }
+
+#[cfg(test)]
+mod tests;

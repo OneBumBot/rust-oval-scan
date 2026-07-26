@@ -1,20 +1,33 @@
 use crate::{collectors::package_collector::PackageCollector, runners::runner::Runner};
-use oval_core::packages;
+use futures::{StreamExt, TryStreamExt, stream};
 use oval_core::packages::package::Package;
-use std::time::{Duration, UNIX_EPOCH};
-use std::{collections::HashMap, fs, io, path::Path};
+use std::{
+    collections::HashMap,
+    io,
+    path::Path,
+    time::{Duration, UNIX_EPOCH},
+};
 
-pub struct PacmanCollector<R> {
-    runner: R,
+pub struct PacmanCollector<'a, R> {
+    runner: &'a R,
+    concurrency: usize,
 }
 
-impl<R: Runner> PacmanCollector<R> {
-    pub fn new(runner: R) -> Self {
-        Self { runner }
+impl<'a, R: Runner> PacmanCollector<'a, R> {
+    pub fn new(runner: &'a R) -> Self {
+        Self {
+            runner,
+            concurrency: 16,
+        }
     }
 
-    fn parse_alpm_file(&self, path: &Path) -> io::Result<HashMap<String, Vec<String>>> {
-        let content = self.runner.open_file(path)?;
+    pub fn with_concurrency(mut self, concurrency: usize) -> Self {
+        self.concurrency = concurrency.max(1);
+        self
+    }
+
+    async fn parse_alpm_file(&self, path: &Path) -> io::Result<HashMap<String, Vec<String>>> {
+        let content = self.runner.read_to_string(path).await?;
         Ok(self.parse_alpm_content(&content))
     }
 
@@ -93,26 +106,38 @@ impl<R: Runner> PacmanCollector<R> {
     }
 }
 
-impl<R: Runner> PackageCollector for PacmanCollector<R> {
+impl<'a, R: Runner> PackageCollector for PacmanCollector<'a, R> {
     fn name(&self) -> &'static str {
         "pacman"
     }
 
-    fn detect(&self) -> std::io::Result<bool> {
-        self.runner.file_exist(Path::new("/var/lib/pacman/local/"))
+    async fn detect(&self) -> std::io::Result<bool> {
+        self.runner
+            .path_exists(Path::new("/var/lib/pacman/local/"))
+            .await
     }
 
-    fn collect(&self) -> std::io::Result<Vec<Package>> {
-        let pacman_dir_path = "/var/lib/pacman/local";
-        let mut packages: Vec<Package> = Vec::new();
-        for entry in self.runner.read_dir(Path::new(pacman_dir_path))? {
-            if entry.is_dir() {
-                let content = self.parse_alpm_file(entry.join(Path::new("desc")).as_path())?;
-                let package = self.parse_alpm_to_package(&content);
-                packages.push(package);
-            }
-        }
+    async fn collect(&self) -> std::io::Result<Vec<Package>> {
+        let entries = self
+            .runner
+            .read_dir(Path::new("/var/lib/pacman/local/"))
+            .await?;
+
+        let package_dirs = entries.into_iter().filter(|entry| entry.is_dir);
+
+        let packages = stream::iter(package_dirs)
+            .map(|entry| async move {
+                let path = entry.path.join("desc");
+                let parsed = self.parse_alpm_file(&path).await?;
+                Ok::<_, io::Error>(self.parse_alpm_to_package(&parsed))
+            })
+            .buffer_unordered(self.concurrency)
+            .try_collect()
+            .await?;
 
         Ok(packages)
     }
 }
+
+#[cfg(test)]
+mod tests;
