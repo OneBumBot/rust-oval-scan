@@ -16,6 +16,10 @@ license = "Apache-2.0"
 authors = ["Iurii Pianov"]
 repository = "https://github.com/onebumbot/oval-rust-scan"
 
+[workspace.dependencies]
+tokio = {version = "1", features = ["full"]}
+futures = "0.3"
+
 [profile.profiling]
 inherits = "release"
 debug = true
