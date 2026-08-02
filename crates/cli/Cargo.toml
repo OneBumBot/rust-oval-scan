@@ -10,3 +10,5 @@ chrono="0.4"
 oval-core = { path = "../core" }
 oval-scanner = { path = "../scanner"}
 tokio = {workspace = true}
+tracing = {workspace = true}
+tracing-subscriber = {workspace = true}
