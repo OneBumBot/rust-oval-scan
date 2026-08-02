@@ -4,6 +4,13 @@ use std::{io::Result, path::Path};
 pub struct LocalRunner;
 
 impl Runner for LocalRunner {
+    #[tracing::instrument(
+        level = "debug",
+        name = "command.execute",
+        skip(self, args),
+        fields(command),
+        err
+    )]
     async fn execute(&self, command: &str, args: &[&str]) -> Result<CommandOutput> {
         let mut command = tokio::process::Command::new(command);
         command.args(args).kill_on_drop(true);

@@ -1,6 +1,7 @@
 use chrono::{DateTime, Local};
-use std::io;
+use std::io::{self, IsTerminal};
 use std::time::{Instant, SystemTime};
+use tracing_subscriber::EnvFilter;
 
 use oval_scanner::{
     collectors::{
@@ -16,8 +17,28 @@ fn format_time(time: SystemTime) -> String {
         .to_string()
 }
 
+fn init_tracing() {
+    let ansi = std::io::stderr().is_terminal();
+
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_ansi(ansi)
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .with_target(false)
+        .compact()
+        .init()
+}
+
 #[tokio::main]
 async fn main() -> io::Result<()> {
+    init_tracing();
+    run().await
+}
+
+#[tracing::instrument(name = "scan", skip_all, err)]
+async fn run() -> io::Result<()> {
     let runner = LocalRunner;
 
     let host = HostCollector::collect(&runner).await?;

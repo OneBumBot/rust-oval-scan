@@ -26,6 +26,12 @@ impl<'a, R: Runner> PacmanCollector<'a, R> {
         self
     }
 
+    #[tracing::instrument(
+      level = "trace",
+      skip(self),
+      fields(path = %path.display()),
+      err
+  )]
     async fn parse_alpm_file(&self, path: &Path) -> io::Result<HashMap<String, Vec<String>>> {
         let content = self.runner.read_to_string(path).await?;
         Ok(self.parse_alpm_content(&content))
@@ -111,13 +117,27 @@ impl<'a, R: Runner> PackageCollector for PacmanCollector<'a, R> {
         "pacman"
     }
 
+    #[tracing::instrument(
+        name = "packages.detect",
+        skip(self),
+        fields(collector = "pacman"),
+        err,
+        ret
+    )]
     async fn detect(&self) -> std::io::Result<bool> {
         self.runner
             .path_exists(Path::new("/var/lib/pacman/local/"))
             .await
     }
 
+    #[tracing::instrument(
+        name = "packages.collect",
+        skip(self),
+        fields(collector = "pacman", concurrency = self.concurrency),
+        err
+    )]
     async fn collect(&self) -> std::io::Result<Vec<Package>> {
+        tracing::info!("reading packages database");
         let entries = self
             .runner
             .read_dir(Path::new("/var/lib/pacman/local/"))
@@ -125,7 +145,7 @@ impl<'a, R: Runner> PackageCollector for PacmanCollector<'a, R> {
 
         let package_dirs = entries.into_iter().filter(|entry| entry.is_dir);
 
-        let packages = stream::iter(package_dirs)
+        let packages: Vec<Package> = stream::iter(package_dirs)
             .map(|entry| async move {
                 let path = entry.path.join("desc");
                 let parsed = self.parse_alpm_file(&path).await?;
@@ -134,6 +154,11 @@ impl<'a, R: Runner> PackageCollector for PacmanCollector<'a, R> {
             .buffer_unordered(self.concurrency)
             .try_collect()
             .await?;
+
+        tracing::info!(
+            packages.count = packages.len(),
+            "package collection completed"
+        );
 
         Ok(packages)
     }

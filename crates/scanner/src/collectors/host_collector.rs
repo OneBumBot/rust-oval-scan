@@ -7,6 +7,7 @@ use std::{fs, io, process::Command};
 pub struct HostCollector {}
 
 impl HostCollector {
+    #[tracing::instrument(name = "host.collect", skip_all, err)]
     pub async fn collect<R: Runner>(runner: &R) -> io::Result<Host> {
         let (hostname, kernel, arch, os_release) = tokio::try_join!(
             runner.read_to_string(Path::new("/etc/hostname")),
