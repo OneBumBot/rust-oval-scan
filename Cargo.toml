@@ -19,6 +19,11 @@ repository = "https://github.com/onebumbot/oval-rust-scan"
 [workspace.dependencies]
 tokio = {version = "1", features = ["full"]}
 futures = "0.3"
+tracing = "0.1"
+tracing-subscriber = {
+    version ="0.3",
+    features = ["env-filter","fmt"]
+}
 
 [profile.profiling]
 inherits = "release"
