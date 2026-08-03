@@ -1,5 +1,5 @@
 use crate::{collectors::package_collector::PackageCollector, runners::runner::Runner};
-use futures::{StreamExt, TryStreamExt, stream};
+use futures::{StreamExt, TryStreamExt, future::BoxFuture, stream};
 use oval_core::packages::package::Package;
 use std::{
     collections::HashMap,
@@ -124,10 +124,12 @@ impl<'a, R: Runner> PackageCollector for PacmanCollector<'a, R> {
         err,
         ret
     )]
-    async fn detect(&self) -> std::io::Result<bool> {
-        self.runner
-            .path_exists(Path::new("/var/lib/pacman/local/"))
-            .await
+    fn detect(&self) -> BoxFuture<'_, std::io::Result<bool>> {
+        Box::pin(async move {
+            self.runner
+                .path_exists(Path::new("/var/lib/pacman/local/"))
+                .await
+        })
     }
 
     #[tracing::instrument(
@@ -136,31 +138,33 @@ impl<'a, R: Runner> PackageCollector for PacmanCollector<'a, R> {
         fields(collector = "pacman", concurrency = self.concurrency),
         err
     )]
-    async fn collect(&self) -> std::io::Result<Vec<Package>> {
-        tracing::info!("reading packages database");
-        let entries = self
-            .runner
-            .read_dir(Path::new("/var/lib/pacman/local/"))
-            .await?;
+    fn collect(&self) -> BoxFuture<'_, std::io::Result<Vec<Package>>> {
+        Box::pin(async move {
+            tracing::info!("reading packages database");
+            let entries = self
+                .runner
+                .read_dir(Path::new("/var/lib/pacman/local/"))
+                .await?;
 
-        let package_dirs = entries.into_iter().filter(|entry| entry.is_dir);
+            let package_dirs = entries.into_iter().filter(|entry| entry.is_dir);
 
-        let packages: Vec<Package> = stream::iter(package_dirs)
-            .map(|entry| async move {
-                let path = entry.path.join("desc");
-                let parsed = self.parse_alpm_file(&path).await?;
-                Ok::<_, io::Error>(self.parse_alpm_to_package(&parsed))
-            })
-            .buffer_unordered(self.concurrency)
-            .try_collect()
-            .await?;
+            let packages: Vec<Package> = stream::iter(package_dirs)
+                .map(|entry| async move {
+                    let path = entry.path.join("desc");
+                    let parsed = self.parse_alpm_file(&path).await?;
+                    Ok::<_, io::Error>(self.parse_alpm_to_package(&parsed))
+                })
+                .buffer_unordered(self.concurrency)
+                .try_collect()
+                .await?;
 
-        tracing::info!(
-            packages.count = packages.len(),
-            "package collection completed"
-        );
+            tracing::info!(
+                packages.count = packages.len(),
+                "package collection completed"
+            );
 
-        Ok(packages)
+            Ok(packages)
+        })
     }
 }
 
