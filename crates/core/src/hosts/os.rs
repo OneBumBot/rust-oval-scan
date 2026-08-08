@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::{fs, io};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct OsInfo {
     name: String,
     pretty_name: String,
