@@ -21,6 +21,7 @@ impl HostCollector {
             kernel: kernel.stdout.trim().to_owned(),
             arch: arch.stdout.trim().to_owned(),
             os_info: os::parse_os_release(&os_release)?,
+            packages: Vec::new(),
         })
     }
 }
