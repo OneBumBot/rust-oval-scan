@@ -23,6 +23,10 @@ pub async fn select_package_collectors<'a, R: Runner>(
             res.push(collector);
         }
     }
+    if res.is_empty() {
+        tracing::warn!("No supported collectors detected");
+    }
+
     tracing::trace!(
         collecotrs.count = res.len(),
         "Package collectors detecion complete"
